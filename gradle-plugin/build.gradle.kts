@@ -22,6 +22,12 @@ gradlePlugin {
     }
 }
 
+publishing {
+    repositories {
+        mavenLocal()
+    }
+}
+
 // Functional tests source set
 val functionalTest by sourceSets.creating {
     compileClasspath += sourceSets.main.get().output
