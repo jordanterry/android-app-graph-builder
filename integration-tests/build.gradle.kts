@@ -3,17 +3,13 @@ plugins {
     alias(libs.plugins.kotlin.kapt)
 }
 
-description = "Dagger SPI plugin for extracting binding graphs"
+description = "Integration tests for the Dagger SPI plugin using compile-testing"
 
 dependencies {
-    api(project(":graph-model"))
-    api(project(":graph-writer-api"))
+    implementation(project(":graph-model"))
+    implementation(project(":graph-writer-api"))
     implementation(project(":graph-writer-gexf"))
-
-    implementation(libs.kotlin.stdlib)
-    implementation(libs.dagger.spi)
-    implementation(libs.auto.service.annotations)
-    kapt(libs.auto.service)
+    implementation(project(":dagger-spi"))
 
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.truth)

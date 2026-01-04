@@ -1,4 +1,4 @@
-package io.github.jordanterry.grph.writer
+package io.github.jordanterry.grph.writer.gexf
 
 import com.google.common.truth.Truth.assertThat
 import io.github.jordanterry.grph.model.*

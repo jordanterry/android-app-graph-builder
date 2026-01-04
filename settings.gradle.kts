@@ -16,5 +16,9 @@ dependencyResolutionManagement {
     }
 }
 
+include(":graph-model")
+include(":graph-writer-api")
+include(":graph-writer-gexf")
 include(":dagger-spi")
 include(":gradle-plugin")
+include(":integration-tests")

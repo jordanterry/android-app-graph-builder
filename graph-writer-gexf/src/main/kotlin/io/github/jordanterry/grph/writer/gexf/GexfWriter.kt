@@ -1,6 +1,7 @@
-package io.github.jordanterry.grph.writer
+package io.github.jordanterry.grph.writer.gexf
 
 import io.github.jordanterry.grph.model.*
+import io.github.jordanterry.grph.writer.GraphWriter
 import java.io.OutputStream
 import java.io.OutputStreamWriter
 import java.io.Writer

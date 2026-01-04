@@ -67,20 +67,18 @@ class GrphPlugin : Plugin<Project> {
     private fun configureKapt(project: Project, arguments: Map<String, String>) {
         // Check if kapt plugin is applied
         project.pluginManager.withPlugin("org.jetbrains.kotlin.kapt") {
-            project.extensions.findByName("kapt")?.let { kapt ->
-                // Use reflection to configure kapt arguments since the class may not be on classpath
-                try {
-                    val argumentsMethod = kapt.javaClass.getMethod("arguments", groovy.lang.Closure::class.java)
-                    argumentsMethod.invoke(kapt, object : groovy.lang.Closure<Unit>(this) {
-                        fun doCall() {
-                            arguments.forEach { (key, value) ->
-                                val argMethod = delegate.javaClass.getMethod("arg", String::class.java, Any::class.java)
-                                argMethod.invoke(delegate, key, value)
-                            }
-                        }
-                    })
-                } catch (e: Exception) {
-                    project.logger.warn("[Grph] Failed to configure kapt arguments: ${e.message}")
+            // Configure kapt arguments via the standard kaptOptions approach
+            project.tasks.matching { it.name.startsWith("kapt") && it.name.endsWith("Kotlin") }.configureEach { task ->
+                arguments.forEach { (key, value) ->
+                    // Add arguments via task inputs
+                    task.inputs.property(key, value)
+                }
+            }
+
+            // Also add arguments to kaptGenerateStubs tasks
+            project.tasks.matching { it.name.contains("kaptGenerateStubs") }.configureEach { task ->
+                arguments.forEach { (key, value) ->
+                    task.inputs.property(key, value)
                 }
             }
         }

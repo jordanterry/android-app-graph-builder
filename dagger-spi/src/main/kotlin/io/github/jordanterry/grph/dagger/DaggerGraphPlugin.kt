@@ -6,8 +6,8 @@ import dagger.spi.model.BindingGraphPlugin
 import dagger.spi.model.DaggerProcessingEnv
 import dagger.spi.model.DiagnosticReporter
 import io.github.jordanterry.grph.model.Graph
-import io.github.jordanterry.grph.writer.GexfWriter
 import io.github.jordanterry.grph.writer.GraphWriter
+import io.github.jordanterry.grph.writer.gexf.GexfWriter
 import java.io.File
 import java.io.FileOutputStream
 
