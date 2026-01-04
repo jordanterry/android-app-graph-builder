@@ -1,0 +1,97 @@
+package io.github.jordanterry.grph.model
+
+import com.google.common.truth.Truth.assertThat
+import org.junit.jupiter.api.Test
+
+class NodeTest {
+
+    @Test
+    fun `ComponentNode has correct type`() {
+        val node = ComponentNode(
+            id = "c1",
+            label = "AppComponent",
+            qualifiedName = "com.example.AppComponent",
+            isSubcomponent = false,
+            scopes = listOf("@Singleton"),
+            componentPath = "com.example.AppComponent"
+        )
+
+        assertThat(node.type).isEqualTo(NodeType.COMPONENT)
+        assertThat(node.isSubcomponent).isFalse()
+    }
+
+    @Test
+    fun `BindingNode captures binding kind`() {
+        val node = BindingNode(
+            id = "b1",
+            label = "UserRepository",
+            key = "com.example.UserRepository",
+            bindingKind = BindingKind.INJECTION,
+            scope = "@Singleton",
+            contributingModule = null,
+            isMultibinding = false
+        )
+
+        assertThat(node.type).isEqualTo(NodeType.BINDING)
+        assertThat(node.bindingKind).isEqualTo(BindingKind.INJECTION)
+        assertThat(node.scope).isEqualTo("@Singleton")
+    }
+
+    @Test
+    fun `ModuleNode captures includes list`() {
+        val node = ModuleNode(
+            id = "m1",
+            label = "AppModule",
+            qualifiedName = "com.example.AppModule",
+            isAbstract = false,
+            includes = listOf("com.example.NetworkModule", "com.example.DatabaseModule")
+        )
+
+        assertThat(node.type).isEqualTo(NodeType.MODULE)
+        assertThat(node.includes).hasSize(2)
+        assertThat(node.includes).contains("com.example.NetworkModule")
+    }
+
+    @Test
+    fun `MissingBindingNode has correct type`() {
+        val node = MissingBindingNode(
+            id = "missing1",
+            label = "[MISSING] String",
+            key = "java.lang.String"
+        )
+
+        assertThat(node.type).isEqualTo(NodeType.MISSING_BINDING)
+    }
+
+    @Test
+    fun `node attributes are accessible`() {
+        val node = BindingNode(
+            id = "b1",
+            label = "Test",
+            key = "com.example.Test",
+            bindingKind = BindingKind.PROVISION,
+            scope = null,
+            contributingModule = "com.example.TestModule",
+            isMultibinding = false,
+            attributes = mapOf("custom" to "value")
+        )
+
+        assertThat(node.attributes).containsEntry("custom", "value")
+    }
+
+    @Test
+    fun `multibinding is correctly identified`() {
+        val setBinding = BindingNode(
+            id = "b1",
+            label = "Set<String>",
+            key = "java.util.Set<java.lang.String>",
+            bindingKind = BindingKind.MULTIBOUND_SET,
+            scope = null,
+            contributingModule = null,
+            isMultibinding = true
+        )
+
+        assertThat(setBinding.isMultibinding).isTrue()
+        assertThat(setBinding.bindingKind).isEqualTo(BindingKind.MULTIBOUND_SET)
+    }
+}
