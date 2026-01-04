@@ -4,7 +4,7 @@ plugins {
 }
 
 subprojects {
-    group = "io.github.jordanterry.grph"
+    group = "io.github.jordanterry.appgraph"
     version = "0.0.1"
 
     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
@@ -38,7 +38,7 @@ subprojects {
                             pom {
                                 name.set(project.name)
                                 description.set(project.description)
-                                url.set("https://github.com/jordanterry/android-app-graph-builder")
+                                url.set("https://github.com/jordanterry/app-graph")
 
                                 licenses {
                                     license {

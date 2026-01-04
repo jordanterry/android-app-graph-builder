@@ -13,10 +13,10 @@ dependencies {
 
 gradlePlugin {
     plugins {
-        create("grph") {
-            id = "io.github.jordanterry.grph"
-            implementationClass = "io.github.jordanterry.grph.gradle.GrphPlugin"
-            displayName = "Grph Dagger Graph Builder"
+        create("appGraph") {
+            id = "io.github.jordanterry.appgraph"
+            implementationClass = "io.github.jordanterry.appgraph.gradle.AppGraphPlugin"
+            displayName = "AppGraph Dagger Graph Builder"
             description = "Generates GEXF graph visualizations of Dagger dependency graphs"
         }
     }
