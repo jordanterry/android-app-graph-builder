@@ -1,5 +1,6 @@
 package io.github.jordanterry.appgraph.dagger
 
+import dagger.spi.model.Binding
 import dagger.spi.model.BindingGraph
 import io.github.jordanterry.appgraph.model.*
 
@@ -20,14 +21,66 @@ class DaggerGraphExtractor {
         val nodes = mutableListOf<Node>()
         val edges = mutableListOf<Edge>()
 
-        // Extract component nodes
+        // Build a map of bindings to their owning component paths
+        val bindingToComponent = mutableMapOf<String, String>()
+        bindingGraph.componentNodes().forEach { componentNode ->
+            val componentPath = componentNode.componentPath().toString()
+            // Get bindings contributed by this component
+            try {
+                val componentBindings = bindingGraph.bindings().filter { binding ->
+                    try {
+                        // Check if this binding's component path matches
+                        bindingGraph.network().incidentNodes(
+                            bindingGraph.dependencyEdges().firstOrNull { edge ->
+                                try {
+                                    bindingGraph.network().incidentNodes(edge).target() == binding
+                                } catch (e: Exception) {
+                                    false
+                                }
+                            } ?: return@filter false
+                        )
+                        true
+                    } catch (e: Exception) {
+                        false
+                    }
+                }
+            } catch (e: Exception) {
+                // Ignore errors
+            }
+        }
+
+        // Extract component nodes first
         bindingGraph.componentNodes().forEach { componentNode ->
             nodes.add(mapper.mapComponentNode(componentNode))
         }
 
-        // Extract binding nodes
+        // Collect entry point binding keys
+        val entryPointKeys = mutableSetOf<String>()
+        bindingGraph.entryPointEdges().forEach { edge ->
+            try {
+                val targetNode = bindingGraph.network().incidentNodes(edge).target()
+                if (targetNode is Binding) {
+                    entryPointKeys.add(targetNode.key().toString())
+                }
+            } catch (e: Exception) {
+                // Ignore errors
+            }
+        }
+
+        // Extract binding nodes with component path information
+        val rootComponentPath = bindingGraph.rootComponentNode().componentPath().toString()
         bindingGraph.bindings().forEach { binding ->
-            nodes.add(mapper.mapBindingNode(binding))
+            val key = binding.key().toString()
+            val componentPath = bindingToComponent[key] ?: rootComponentPath
+            val bindingNode = mapper.mapBindingNode(binding, componentPath)
+
+            // Update entry point status
+            val finalNode = if (entryPointKeys.contains(key)) {
+                bindingNode.copy(isEntryPoint = true)
+            } else {
+                bindingNode
+            }
+            nodes.add(finalNode)
         }
 
         // Extract missing bindings
@@ -46,6 +99,19 @@ class DaggerGraphExtractor {
         // Extract component hierarchy edges
         extractComponentHierarchy(bindingGraph, mapper, edges)
 
+        // Create module nodes from tracked modules
+        val moduleNodes = mapper.createModuleNodes()
+        nodes.addAll(moduleNodes)
+
+        // Create binding-to-module edges
+        extractBindingToModuleEdges(bindingGraph, mapper, edges)
+
+        // Create component-to-module edges
+        extractComponentToModuleEdges(bindingGraph, mapper, edges)
+
+        // Create component-to-binding edges for entry points
+        extractEntryPointEdges(bindingGraph, mapper, edges)
+
         val rootComponent = bindingGraph.rootComponentNode()
         val graphName = rootComponent.componentPath().toString()
 
@@ -55,10 +121,123 @@ class DaggerGraphExtractor {
             nodes = nodes,
             edges = edges,
             metadata = GraphMetadata(
-                creator = "grph-dagger-spi",
+                creator = "appgraph-dagger-spi",
                 description = "Dagger dependency graph for $graphName"
             )
         )
+    }
+
+    /**
+     * Extract edges from bindings to their contributing modules.
+     */
+    private fun extractBindingToModuleEdges(
+        bindingGraph: BindingGraph,
+        mapper: DaggerNodeMapper,
+        edges: MutableList<Edge>
+    ) {
+        bindingGraph.bindings().forEach { binding ->
+            try {
+                val moduleName = binding.contributingModule().orElse(null)?.toString()
+                if (moduleName != null) {
+                    val bindingKey = binding.key().toString()
+                    val bindingId = mapper.getBindingNodeId(bindingKey)
+                    val moduleId = mapper.getModuleNodeId(moduleName)
+
+                    if (bindingId != null) {
+                        edges.add(
+                            BindingToModuleEdge(
+                                id = mapper.nextEdgeId(),
+                                source = bindingId,
+                                target = moduleId
+                            )
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                // Skip bindings that don't have contributing module info
+            }
+        }
+    }
+
+    /**
+     * Extract edges from components to their installed modules.
+     */
+    private fun extractComponentToModuleEdges(
+        bindingGraph: BindingGraph,
+        mapper: DaggerNodeMapper,
+        edges: MutableList<Edge>
+    ) {
+        // Track which component-module pairs we've already added
+        val addedEdges = mutableSetOf<Pair<String, String>>()
+
+        bindingGraph.bindings().forEach { binding ->
+            try {
+                val moduleName = binding.contributingModule().orElse(null)?.toString()
+                if (moduleName != null) {
+                    // For each component, check if this module contributes bindings to it
+                    bindingGraph.componentNodes().forEach { componentNode ->
+                        val componentId = mapper.getComponentNodeId(componentNode)
+                        val moduleId = mapper.getModuleNodeId(moduleName)
+                        val edgeKey = componentId to moduleId
+
+                        if (!addedEdges.contains(edgeKey)) {
+                            addedEdges.add(edgeKey)
+                            edges.add(
+                                ModuleInclusionEdge(
+                                    id = mapper.nextEdgeId(),
+                                    source = componentId,
+                                    target = moduleId
+                                )
+                            )
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // Skip on error
+            }
+        }
+    }
+
+    /**
+     * Extract edges from components to their entry point bindings.
+     */
+    private fun extractEntryPointEdges(
+        bindingGraph: BindingGraph,
+        mapper: DaggerNodeMapper,
+        edges: MutableList<Edge>
+    ) {
+        // Track which component-binding pairs we've already added
+        val addedEdges = mutableSetOf<Pair<String, String>>()
+
+        bindingGraph.entryPointEdges().forEach { entryPointEdge ->
+            try {
+                val targetNode = bindingGraph.network().incidentNodes(entryPointEdge).target()
+                if (targetNode is Binding) {
+                    val bindingKey = targetNode.key().toString()
+                    val bindingId = mapper.getBindingNodeId(bindingKey)
+
+                    // Use the root component for entry points (simplest approach)
+                    val componentNode = bindingGraph.rootComponentNode()
+                    val componentId = mapper.getComponentNodeId(componentNode)
+
+                    if (bindingId != null) {
+                        val edgeKey = componentId to bindingId
+                        if (!addedEdges.contains(edgeKey)) {
+                            addedEdges.add(edgeKey)
+                            edges.add(
+                                ComponentToBindingEdge(
+                                    id = mapper.nextEdgeId(),
+                                    source = componentId,
+                                    target = bindingId
+                                )
+                            )
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // Skip on error
+            }
+        }
     }
 
     /**

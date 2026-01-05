@@ -21,7 +21,11 @@ enum class EdgeType {
     /** Parent component to child subcomponent relationship */
     COMPONENT_HIERARCHY,
     /** Component/module to included module relationship */
-    MODULE_INCLUSION
+    MODULE_INCLUSION,
+    /** Binding to its providing module */
+    BINDING_TO_MODULE,
+    /** Component to binding relationship (for entry points) */
+    COMPONENT_TO_BINDING
 }
 
 /**
@@ -62,4 +66,30 @@ data class ModuleInclusionEdge(
     override val attributes: Map<String, String> = emptyMap()
 ) : Edge {
     override val type: EdgeType = EdgeType.MODULE_INCLUSION
+}
+
+/**
+ * Represents an edge from a binding to its providing module.
+ * The source is the binding, target is the module.
+ */
+data class BindingToModuleEdge(
+    override val id: String,
+    override val source: String,
+    override val target: String,
+    override val attributes: Map<String, String> = emptyMap()
+) : Edge {
+    override val type: EdgeType = EdgeType.BINDING_TO_MODULE
+}
+
+/**
+ * Represents an edge from a component to a binding it exposes.
+ * The source is the component, target is the binding (entry point).
+ */
+data class ComponentToBindingEdge(
+    override val id: String,
+    override val source: String,
+    override val target: String,
+    override val attributes: Map<String, String> = emptyMap()
+) : Edge {
+    override val type: EdgeType = EdgeType.COMPONENT_TO_BINDING
 }

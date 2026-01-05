@@ -48,7 +48,11 @@ data class BindingNode(
     val bindingKind: BindingKind,
     val scope: String?,
     val contributingModule: String?,
-    val isMultibinding: Boolean
+    val isMultibinding: Boolean,
+    /** The component path where this binding is installed */
+    val componentPath: String? = null,
+    /** Whether this binding is an entry point (exposed on a component interface) */
+    val isEntryPoint: Boolean = false
 ) : Node {
     override val type: NodeType = NodeType.BINDING
 }
@@ -61,8 +65,12 @@ data class ModuleNode(
     override val label: String,
     override val attributes: Map<String, String> = emptyMap(),
     val qualifiedName: String,
-    val isAbstract: Boolean,
-    val includes: List<String>
+    val isAbstract: Boolean = false,
+    val includes: List<String> = emptyList(),
+    /** List of components that directly include this module */
+    val installedInComponents: List<String> = emptyList(),
+    /** Number of bindings provided by this module */
+    val bindingCount: Int = 0
 ) : Node {
     override val type: NodeType = NodeType.MODULE
 }

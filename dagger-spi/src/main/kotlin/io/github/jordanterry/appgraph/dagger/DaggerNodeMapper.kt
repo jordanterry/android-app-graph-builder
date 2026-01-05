@@ -18,6 +18,11 @@ class DaggerNodeMapper {
     // Maps Dagger keys to our node IDs for edge creation
     private val keyToNodeId = mutableMapOf<String, String>()
     private val componentToNodeId = mutableMapOf<String, String>()
+    private val moduleToNodeId = mutableMapOf<String, String>()
+
+    // Track module information for creating ModuleNodes
+    private val moduleBindingCounts = mutableMapOf<String, Int>()
+    private val moduleToComponents = mutableMapOf<String, MutableSet<String>>()
 
     fun nextNodeId(): String = "n${nodeIdCounter++}"
     fun nextEdgeId(): String = "e${edgeIdCounter++}"
@@ -57,7 +62,7 @@ class DaggerNodeMapper {
     /**
      * Map a Dagger Binding to our BindingNode.
      */
-    fun mapBindingNode(binding: Binding): BindingNode {
+    fun mapBindingNode(binding: Binding, componentPath: String? = null): BindingNode {
         val key = binding.key().toString()
         val id = nextNodeId()
         keyToNodeId[key] = id
@@ -68,6 +73,14 @@ class DaggerNodeMapper {
             null
         }
 
+        // Track module usage for later ModuleNode creation
+        if (contributingModule != null) {
+            moduleBindingCounts[contributingModule] = (moduleBindingCounts[contributingModule] ?: 0) + 1
+            if (componentPath != null) {
+                moduleToComponents.getOrPut(contributingModule) { mutableSetOf() }.add(componentPath)
+            }
+        }
+
         return BindingNode(
             id = id,
             label = simplifyKey(key),
@@ -75,9 +88,46 @@ class DaggerNodeMapper {
             bindingKind = mapBindingKind(binding.kind()),
             scope = binding.scope().orElse(null)?.toString(),
             contributingModule = contributingModule,
-            isMultibinding = isMultibinding(binding.kind())
+            isMultibinding = isMultibinding(binding.kind()),
+            componentPath = componentPath
         )
     }
+
+    /**
+     * Get or create the node ID for a module.
+     */
+    fun getModuleNodeId(moduleName: String): String {
+        return moduleToNodeId.getOrPut(moduleName) { nextNodeId() }
+    }
+
+    /**
+     * Get the binding node ID for a key.
+     */
+    fun getBindingNodeId(key: String): String? = keyToNodeId[key]
+
+    /**
+     * Create ModuleNodes from all tracked modules.
+     */
+    fun createModuleNodes(): List<ModuleNode> {
+        return moduleBindingCounts.map { (moduleName, bindingCount) ->
+            val id = getModuleNodeId(moduleName)
+            val simpleName = moduleName.substringAfterLast('.')
+            ModuleNode(
+                id = id,
+                label = simpleName,
+                qualifiedName = moduleName,
+                isAbstract = false, // We can't determine this from the binding graph
+                includes = emptyList(), // Would need additional analysis
+                installedInComponents = moduleToComponents[moduleName]?.toList() ?: emptyList(),
+                bindingCount = bindingCount
+            )
+        }
+    }
+
+    /**
+     * Get all tracked modules.
+     */
+    fun getTrackedModules(): Set<String> = moduleBindingCounts.keys
 
     /**
      * Map a Dagger MissingBinding to our MissingBindingNode.

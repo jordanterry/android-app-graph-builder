@@ -248,6 +248,114 @@ class GexfWriterTest {
         assertThat(output).contains("for=\"qualifiedName\" value=\"com.example.AppComponent\"")
     }
 
+    @Test
+    fun `includes visualization namespace when enabled`() {
+        val graph = createSimpleGraph()
+        val output = writeToString(graph)
+
+        assertThat(output).contains("xmlns:viz=\"http://gexf.net/1.3/viz\"")
+    }
+
+    @Test
+    fun `includes visualization elements for nodes`() {
+        val graph = createSimpleGraph()
+        val output = writeToString(graph)
+
+        assertThat(output).contains("<viz:color")
+        assertThat(output).contains("<viz:size")
+        assertThat(output).contains("<viz:shape")
+    }
+
+    @Test
+    fun `ModuleNode includes binding count`() {
+        val graph = Graph(
+            id = "test",
+            name = "Test",
+            nodes = listOf(
+                ModuleNode(
+                    id = "m1",
+                    label = "AppModule",
+                    qualifiedName = "com.example.AppModule",
+                    bindingCount = 5,
+                    installedInComponents = listOf("com.example.AppComponent")
+                )
+            ),
+            edges = emptyList()
+        )
+
+        val output = writeToString(graph)
+
+        assertThat(output).contains("for=\"nodeType\" value=\"MODULE\"")
+        assertThat(output).contains("for=\"bindingCount\" value=\"5\"")
+        assertThat(output).contains("for=\"installedInComponents\" value=\"com.example.AppComponent\"")
+    }
+
+    @Test
+    fun `BindingNode includes componentPath and isEntryPoint`() {
+        val graph = Graph(
+            id = "test",
+            name = "Test",
+            nodes = listOf(
+                BindingNode(
+                    id = "b1",
+                    label = "UserRepo",
+                    key = "com.example.UserRepo",
+                    bindingKind = BindingKind.INJECTION,
+                    scope = null,
+                    contributingModule = "com.example.AppModule",
+                    isMultibinding = false,
+                    componentPath = "com.example.AppComponent",
+                    isEntryPoint = true
+                )
+            ),
+            edges = emptyList()
+        )
+
+        val output = writeToString(graph)
+
+        assertThat(output).contains("for=\"componentPath\" value=\"com.example.AppComponent\"")
+        assertThat(output).contains("for=\"isEntryPoint\" value=\"true\"")
+        assertThat(output).contains("for=\"contributingModule\" value=\"com.example.AppModule\"")
+    }
+
+    @Test
+    fun `BindingToModuleEdge writes correctly`() {
+        val graph = Graph(
+            id = "test",
+            name = "Test",
+            nodes = listOf(
+                BindingNode("b1", "Binding", key = "A", bindingKind = BindingKind.INJECTION, scope = null, contributingModule = null, isMultibinding = false),
+                ModuleNode("m1", "Module", qualifiedName = "com.example.Module")
+            ),
+            edges = listOf(
+                BindingToModuleEdge(id = "e1", source = "b1", target = "m1")
+            )
+        )
+
+        val output = writeToString(graph)
+
+        assertThat(output).contains("for=\"edgeType\" value=\"BINDING_TO_MODULE\"")
+    }
+
+    @Test
+    fun `ComponentToBindingEdge writes correctly`() {
+        val graph = Graph(
+            id = "test",
+            name = "Test",
+            nodes = listOf(
+                ComponentNode("c1", "Component", qualifiedName = "com.example.Component", isSubcomponent = false, scopes = emptyList(), componentPath = "com.example.Component"),
+                BindingNode("b1", "Binding", key = "A", bindingKind = BindingKind.INJECTION, scope = null, contributingModule = null, isMultibinding = false)
+            ),
+            edges = listOf(
+                ComponentToBindingEdge(id = "e1", source = "c1", target = "b1")
+            )
+        )
+
+        val output = writeToString(graph)
+
+        assertThat(output).contains("for=\"edgeType\" value=\"COMPONENT_TO_BINDING\"")
+    }
+
     private fun createSimpleGraph(): Graph {
         return Graph(
             id = "simple",

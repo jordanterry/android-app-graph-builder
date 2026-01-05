@@ -9,7 +9,7 @@ import javax.xml.stream.XMLOutputFactory
 import javax.xml.stream.XMLStreamWriter
 
 /**
- * Writes graphs in GEXF 1.3 format.
+ * Writes graphs in GEXF 1.3 format with visualization support.
  *
  * GEXF (Graph Exchange XML Format) is a language for describing complex
  * network structures, their associated data, and dynamics.
@@ -17,7 +17,8 @@ import javax.xml.stream.XMLStreamWriter
  * @see <a href="https://gexf.net/">GEXF File Format</a>
  */
 class GexfWriter(
-    private val prettyPrint: Boolean = true
+    private val prettyPrint: Boolean = true,
+    private val includeVisualization: Boolean = true
 ) : GraphWriter {
 
     override val formatName: String = "GEXF"
@@ -25,7 +26,26 @@ class GexfWriter(
 
     companion object {
         private const val GEXF_NAMESPACE = "http://gexf.net/1.3"
+        private const val VIZ_NAMESPACE = "http://gexf.net/1.3/viz"
         private const val GEXF_VERSION = "1.3"
+
+        // Color scheme for different node types
+        private val COMPONENT_COLOR = Triple(66, 133, 244)   // Blue
+        private val BINDING_COLOR = Triple(52, 168, 83)      // Green
+        private val MODULE_COLOR = Triple(251, 188, 4)       // Yellow/Gold
+        private val MISSING_COLOR = Triple(234, 67, 53)      // Red
+
+        // Color scheme for different binding kinds
+        private val INJECTION_COLOR = Triple(52, 168, 83)    // Green - @Inject
+        private val PROVISION_COLOR = Triple(66, 133, 244)   // Blue - @Provides
+        private val DELEGATE_COLOR = Triple(171, 71, 188)    // Purple - @Binds
+        private val MULTIBINDING_COLOR = Triple(255, 152, 0) // Orange - Multibindings
+
+        // Node sizes
+        private const val COMPONENT_SIZE = 30.0
+        private const val MODULE_SIZE = 25.0
+        private const val BINDING_SIZE = 15.0
+        private const val ENTRY_POINT_SIZE = 20.0
     }
 
     override fun write(graph: Graph, output: OutputStream) {
@@ -41,7 +61,11 @@ class GexfWriter(
     private fun writePretty(graph: Graph, writer: Writer) {
         val indent = "  "
         writer.appendLine("""<?xml version="1.0" encoding="UTF-8"?>""")
-        writer.appendLine("""<gexf xmlns="$GEXF_NAMESPACE" version="$GEXF_VERSION">""")
+        if (includeVisualization) {
+            writer.appendLine("""<gexf xmlns="$GEXF_NAMESPACE" xmlns:viz="$VIZ_NAMESPACE" version="$GEXF_VERSION">""")
+        } else {
+            writer.appendLine("""<gexf xmlns="$GEXF_NAMESPACE" version="$GEXF_VERSION">""")
+        }
 
         // Meta
         writer.appendLine("$indent<meta>")
@@ -64,6 +88,12 @@ class GexfWriter(
             writer.appendLine("$indent$indent$indent<attribute id=\"scope\" title=\"Scope\" type=\"string\"/>")
             writer.appendLine("$indent$indent$indent<attribute id=\"qualifiedName\" title=\"Qualified Name\" type=\"string\"/>")
             writer.appendLine("$indent$indent$indent<attribute id=\"isMultibinding\" title=\"Is Multibinding\" type=\"boolean\"/>")
+            writer.appendLine("$indent$indent$indent<attribute id=\"contributingModule\" title=\"Contributing Module\" type=\"string\"/>")
+            writer.appendLine("$indent$indent$indent<attribute id=\"componentPath\" title=\"Component Path\" type=\"string\"/>")
+            writer.appendLine("$indent$indent$indent<attribute id=\"isEntryPoint\" title=\"Is Entry Point\" type=\"boolean\"/>")
+            writer.appendLine("$indent$indent$indent<attribute id=\"isSubcomponent\" title=\"Is Subcomponent\" type=\"boolean\"/>")
+            writer.appendLine("$indent$indent$indent<attribute id=\"bindingCount\" title=\"Binding Count\" type=\"integer\"/>")
+            writer.appendLine("$indent$indent$indent<attribute id=\"installedInComponents\" title=\"Installed In Components\" type=\"string\"/>")
             writer.appendLine("$indent$indent</attributes>")
         }
 
@@ -100,6 +130,9 @@ class GexfWriter(
         xml.writeStartDocument("UTF-8", "1.0")
         xml.writeStartElement("gexf")
         xml.writeDefaultNamespace(GEXF_NAMESPACE)
+        if (includeVisualization) {
+            xml.writeNamespace("viz", VIZ_NAMESPACE)
+        }
         xml.writeAttribute("version", GEXF_VERSION)
 
         // Meta
@@ -141,6 +174,15 @@ class GexfWriter(
     private fun writeNode(node: Node, writer: Writer, indent: String) {
         writer.append("$indent<node id=\"${escapeXml(node.id)}\" label=\"${escapeXml(node.label)}\">")
         writer.appendLine()
+
+        // Write visualization data if enabled
+        if (includeVisualization) {
+            val (color, size) = getNodeVisualization(node)
+            writer.appendLine("$indent  <viz:color r=\"${color.first}\" g=\"${color.second}\" b=\"${color.third}\"/>")
+            writer.appendLine("$indent  <viz:size value=\"$size\"/>")
+            writer.appendLine("$indent  <viz:shape value=\"${getNodeShape(node)}\"/>")
+        }
+
         writer.appendLine("$indent  <attvalues>")
         writer.appendLine("$indent    <attvalue for=\"nodeType\" value=\"${node.type.name}\"/>")
 
@@ -152,15 +194,28 @@ class GexfWriter(
                 }
                 writer.appendLine("$indent    <attvalue for=\"qualifiedName\" value=\"${escapeXml(node.key)}\"/>")
                 writer.appendLine("$indent    <attvalue for=\"isMultibinding\" value=\"${node.isMultibinding}\"/>")
+                node.contributingModule?.let {
+                    writer.appendLine("$indent    <attvalue for=\"contributingModule\" value=\"${escapeXml(it)}\"/>")
+                }
+                node.componentPath?.let {
+                    writer.appendLine("$indent    <attvalue for=\"componentPath\" value=\"${escapeXml(it)}\"/>")
+                }
+                writer.appendLine("$indent    <attvalue for=\"isEntryPoint\" value=\"${node.isEntryPoint}\"/>")
             }
             is ComponentNode -> {
                 writer.appendLine("$indent    <attvalue for=\"qualifiedName\" value=\"${escapeXml(node.qualifiedName)}\"/>")
                 if (node.scopes.isNotEmpty()) {
                     writer.appendLine("$indent    <attvalue for=\"scope\" value=\"${escapeXml(node.scopes.joinToString(","))}\"/>")
                 }
+                writer.appendLine("$indent    <attvalue for=\"isSubcomponent\" value=\"${node.isSubcomponent}\"/>")
+                writer.appendLine("$indent    <attvalue for=\"componentPath\" value=\"${escapeXml(node.componentPath)}\"/>")
             }
             is ModuleNode -> {
                 writer.appendLine("$indent    <attvalue for=\"qualifiedName\" value=\"${escapeXml(node.qualifiedName)}\"/>")
+                writer.appendLine("$indent    <attvalue for=\"bindingCount\" value=\"${node.bindingCount}\"/>")
+                if (node.installedInComponents.isNotEmpty()) {
+                    writer.appendLine("$indent    <attvalue for=\"installedInComponents\" value=\"${escapeXml(node.installedInComponents.joinToString(","))}\"/>")
+                }
             }
             is MissingBindingNode -> {
                 writer.appendLine("$indent    <attvalue for=\"qualifiedName\" value=\"${escapeXml(node.key)}\"/>")
@@ -176,10 +231,53 @@ class GexfWriter(
         writer.appendLine("$indent</node>")
     }
 
+    private fun getNodeVisualization(node: Node): Pair<Triple<Int, Int, Int>, Double> {
+        return when (node) {
+            is ComponentNode -> COMPONENT_COLOR to COMPONENT_SIZE
+            is ModuleNode -> MODULE_COLOR to MODULE_SIZE
+            is MissingBindingNode -> MISSING_COLOR to BINDING_SIZE
+            is BindingNode -> {
+                val color = when {
+                    node.isMultibinding -> MULTIBINDING_COLOR
+                    node.bindingKind == BindingKind.INJECTION -> INJECTION_COLOR
+                    node.bindingKind == BindingKind.PROVISION -> PROVISION_COLOR
+                    node.bindingKind == BindingKind.DELEGATE -> DELEGATE_COLOR
+                    else -> BINDING_COLOR
+                }
+                val size = if (node.isEntryPoint) ENTRY_POINT_SIZE else BINDING_SIZE
+                color to size
+            }
+        }
+    }
+
+    private fun getNodeShape(node: Node): String {
+        return when (node) {
+            is ComponentNode -> "square"
+            is ModuleNode -> "diamond"
+            is MissingBindingNode -> "triangle"
+            is BindingNode -> if (node.isEntryPoint) "star" else "disc"
+        }
+    }
+
     private fun writeNodeXml(node: Node, xml: XMLStreamWriter) {
         xml.writeStartElement("node")
         xml.writeAttribute("id", node.id)
         xml.writeAttribute("label", node.label)
+
+        // Write visualization data if enabled
+        if (includeVisualization) {
+            val (color, size) = getNodeVisualization(node)
+            xml.writeEmptyElement("viz:color")
+            xml.writeAttribute("r", color.first.toString())
+            xml.writeAttribute("g", color.second.toString())
+            xml.writeAttribute("b", color.third.toString())
+
+            xml.writeEmptyElement("viz:size")
+            xml.writeAttribute("value", size.toString())
+
+            xml.writeEmptyElement("viz:shape")
+            xml.writeAttribute("value", getNodeShape(node))
+        }
 
         xml.writeStartElement("attvalues")
         writeAttValue(xml, "nodeType", node.type.name)
@@ -190,15 +288,24 @@ class GexfWriter(
                 node.scope?.let { writeAttValue(xml, "scope", it) }
                 writeAttValue(xml, "qualifiedName", node.key)
                 writeAttValue(xml, "isMultibinding", node.isMultibinding.toString())
+                node.contributingModule?.let { writeAttValue(xml, "contributingModule", it) }
+                node.componentPath?.let { writeAttValue(xml, "componentPath", it) }
+                writeAttValue(xml, "isEntryPoint", node.isEntryPoint.toString())
             }
             is ComponentNode -> {
                 writeAttValue(xml, "qualifiedName", node.qualifiedName)
                 if (node.scopes.isNotEmpty()) {
                     writeAttValue(xml, "scope", node.scopes.joinToString(","))
                 }
+                writeAttValue(xml, "isSubcomponent", node.isSubcomponent.toString())
+                writeAttValue(xml, "componentPath", node.componentPath)
             }
             is ModuleNode -> {
                 writeAttValue(xml, "qualifiedName", node.qualifiedName)
+                writeAttValue(xml, "bindingCount", node.bindingCount.toString())
+                if (node.installedInComponents.isNotEmpty()) {
+                    writeAttValue(xml, "installedInComponents", node.installedInComponents.joinToString(","))
+                }
             }
             is MissingBindingNode -> {
                 writeAttValue(xml, "qualifiedName", node.key)

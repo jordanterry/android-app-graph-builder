@@ -65,4 +65,26 @@ class EdgeTest {
 
         assertThat(edge.attributes).containsEntry("weight", "1.0")
     }
+
+    @Test
+    fun `BindingToModuleEdge has correct type`() {
+        val edge = BindingToModuleEdge(
+            id = "e1",
+            source = "binding",
+            target = "module"
+        )
+
+        assertThat(edge.type).isEqualTo(EdgeType.BINDING_TO_MODULE)
+    }
+
+    @Test
+    fun `ComponentToBindingEdge has correct type`() {
+        val edge = ComponentToBindingEdge(
+            id = "e1",
+            source = "component",
+            target = "binding"
+        )
+
+        assertThat(edge.type).isEqualTo(EdgeType.COMPONENT_TO_BINDING)
+    }
 }
