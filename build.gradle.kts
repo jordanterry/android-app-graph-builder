@@ -5,7 +5,7 @@ plugins {
 
 subprojects {
     group = "io.github.jordanterry.appgraph"
-    version = "0.0.2"
+    version = "0.0.3"
 
     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
         compilerOptions {

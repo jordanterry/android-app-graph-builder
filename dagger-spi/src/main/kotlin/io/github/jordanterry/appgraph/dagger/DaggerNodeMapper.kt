@@ -42,16 +42,12 @@ class DaggerNodeMapper {
         val componentPath = componentNode.componentPath()
         val id = getComponentNodeId(componentNode)
         val pathString = componentPath.toString()
-
-        // Extract simple name from component path string
-        val simpleName = pathString
-            .substringAfterLast(".")
             .replace("[", "")
             .replace("]", "")
 
         return ComponentNode(
             id = id,
-            label = simpleName,
+            label = pathString,
             qualifiedName = pathString,
             isSubcomponent = componentNode.isSubcomponent,
             scopes = componentNode.scopes().map { it.toString() },
@@ -83,7 +79,7 @@ class DaggerNodeMapper {
 
         return BindingNode(
             id = id,
-            label = simplifyKey(key),
+            label = key,
             key = key,
             bindingKind = mapBindingKind(binding.kind()),
             scope = binding.scope().orElse(null)?.toString(),
@@ -111,10 +107,9 @@ class DaggerNodeMapper {
     fun createModuleNodes(): List<ModuleNode> {
         return moduleBindingCounts.map { (moduleName, bindingCount) ->
             val id = getModuleNodeId(moduleName)
-            val simpleName = moduleName.substringAfterLast('.')
             ModuleNode(
                 id = id,
-                label = simpleName,
+                label = moduleName,
                 qualifiedName = moduleName,
                 isAbstract = false, // We can't determine this from the binding graph
                 includes = emptyList(), // Would need additional analysis
@@ -139,7 +134,7 @@ class DaggerNodeMapper {
 
         return MissingBindingNode(
             id = id,
-            label = "[MISSING] ${simplifyKey(key)}",
+            label = "[MISSING] $key",
             key = key
         )
     }
@@ -210,28 +205,5 @@ class DaggerNodeMapper {
      */
     private fun isMultibinding(kind: DaggerBindingKind): Boolean {
         return kind.name == "MULTIBOUND_SET" || kind.name == "MULTIBOUND_MAP"
-    }
-
-    /**
-     * Simplify a fully qualified key to a more readable label.
-     * e.g., "com.example.foo.UserRepository" -> "UserRepository"
-     */
-    private fun simplifyKey(key: String): String {
-        // Handle generic types like "Set<String>"
-        val baseType = key.substringBefore('<')
-        val simpleName = baseType.substringAfterLast('.')
-
-        // Preserve generic parameters if present
-        val genericPart = if (key.contains('<')) {
-            val genericContent = key.substringAfter('<').substringBeforeLast('>')
-            val simplifiedGeneric = genericContent.split(',').joinToString(", ") {
-                it.trim().substringAfterLast('.')
-            }
-            "<$simplifiedGeneric>"
-        } else {
-            ""
-        }
-
-        return "$simpleName$genericPart"
     }
 }
