@@ -87,4 +87,15 @@ class EdgeTest {
 
         assertThat(edge.type).isEqualTo(EdgeType.COMPONENT_TO_BINDING)
     }
+
+    @Test
+    fun `BindingOwnershipEdge has correct type`() {
+        val edge = BindingOwnershipEdge(
+            id = "e1",
+            source = "component",
+            target = "binding"
+        )
+
+        assertThat(edge.type).isEqualTo(EdgeType.BINDING_OWNERSHIP)
+    }
 }

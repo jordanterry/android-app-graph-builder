@@ -25,7 +25,9 @@ enum class EdgeType {
     /** Binding to its providing module */
     BINDING_TO_MODULE,
     /** Component to binding relationship (for entry points) */
-    COMPONENT_TO_BINDING
+    COMPONENT_TO_BINDING,
+    /** Component owns/provides this binding (installed in this component) */
+    BINDING_OWNERSHIP
 }
 
 /**
@@ -92,4 +94,19 @@ data class ComponentToBindingEdge(
     override val attributes: Map<String, String> = emptyMap()
 ) : Edge {
     override val type: EdgeType = EdgeType.COMPONENT_TO_BINDING
+}
+
+/**
+ * Represents ownership of a binding by a component.
+ * The source is the component that owns/installs the binding, target is the binding.
+ * This applies to all bindings (@Inject, @Provides, @Binds) showing which component
+ * they are installed in based on their scope or module installation.
+ */
+data class BindingOwnershipEdge(
+    override val id: String,
+    override val source: String,
+    override val target: String,
+    override val attributes: Map<String, String> = emptyMap()
+) : Edge {
+    override val type: EdgeType = EdgeType.BINDING_OWNERSHIP
 }

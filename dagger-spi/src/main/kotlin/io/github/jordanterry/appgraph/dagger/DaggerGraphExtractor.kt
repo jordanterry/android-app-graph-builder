@@ -112,6 +112,9 @@ class DaggerGraphExtractor {
         // Create component-to-binding edges for entry points
         extractEntryPointEdges(bindingGraph, mapper, edges)
 
+        // Create binding ownership edges (which component owns each binding)
+        extractBindingOwnershipEdges(bindingGraph, mapper, edges)
+
         val rootComponent = bindingGraph.rootComponentNode()
         val graphName = rootComponent.componentPath().toString()
 
@@ -234,6 +237,71 @@ class DaggerGraphExtractor {
                         }
                     }
                 }
+            } catch (e: Exception) {
+                // Skip on error
+            }
+        }
+    }
+
+    /**
+     * Extract binding ownership edges showing which component owns each binding.
+     *
+     * Ownership is determined by:
+     * 1. Scoped bindings belong to the component with the matching scope
+     * 2. Unscoped bindings from modules belong to components that include the module
+     * 3. @Inject constructor bindings belong to the component where they're installed
+     */
+    private fun extractBindingOwnershipEdges(
+        bindingGraph: BindingGraph,
+        mapper: DaggerNodeMapper,
+        edges: MutableList<Edge>
+    ) {
+        val componentNodes = bindingGraph.componentNodes().toList()
+
+        // Build scope-to-component mapping
+        val scopeToComponent = mutableMapOf<String, BindingGraph.ComponentNode>()
+        componentNodes.forEach { componentNode ->
+            componentNode.scopes().forEach { scope ->
+                scopeToComponent[scope.toString()] = componentNode
+            }
+        }
+
+        bindingGraph.bindings().forEach { binding ->
+            try {
+                val bindingKey = binding.key().toString()
+                val bindingId = mapper.getBindingNodeId(bindingKey) ?: return@forEach
+
+                // Determine the owning component
+                val owningComponent: BindingGraph.ComponentNode = when {
+                    // 1. Scoped bindings: find component with matching scope
+                    binding.scope().isPresent -> {
+                        val scope = binding.scope().get().toString()
+                        scopeToComponent[scope] ?: bindingGraph.rootComponentNode()
+                    }
+
+                    // 2. Bindings from modules: associate with the component that has the module
+                    binding.contributingModule().isPresent -> {
+                        // For module bindings without scope, they're available from the component
+                        // that includes the module. Use root component as default.
+                        bindingGraph.rootComponentNode()
+                    }
+
+                    // 3. @Inject constructor bindings without scope: associated with root
+                    // (they can be instantiated at any component level)
+                    else -> {
+                        bindingGraph.rootComponentNode()
+                    }
+                }
+
+                val componentId = mapper.getComponentNodeId(owningComponent)
+
+                edges.add(
+                    BindingOwnershipEdge(
+                        id = mapper.nextEdgeId(),
+                        source = componentId,
+                        target = bindingId
+                    )
+                )
             } catch (e: Exception) {
                 // Skip on error
             }

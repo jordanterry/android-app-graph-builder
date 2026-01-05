@@ -356,6 +356,25 @@ class GexfWriterTest {
         assertThat(output).contains("for=\"edgeType\" value=\"COMPONENT_TO_BINDING\"")
     }
 
+    @Test
+    fun `BindingOwnershipEdge writes correctly`() {
+        val graph = Graph(
+            id = "test",
+            name = "Test",
+            nodes = listOf(
+                ComponentNode("c1", "Component", qualifiedName = "com.example.Component", isSubcomponent = false, scopes = listOf("@Singleton"), componentPath = "com.example.Component"),
+                BindingNode("b1", "Binding", key = "A", bindingKind = BindingKind.INJECTION, scope = "@Singleton", contributingModule = null, isMultibinding = false)
+            ),
+            edges = listOf(
+                BindingOwnershipEdge(id = "e1", source = "c1", target = "b1")
+            )
+        )
+
+        val output = writeToString(graph)
+
+        assertThat(output).contains("for=\"edgeType\" value=\"BINDING_OWNERSHIP\"")
+    }
+
     private fun createSimpleGraph(): Graph {
         return Graph(
             id = "simple",
