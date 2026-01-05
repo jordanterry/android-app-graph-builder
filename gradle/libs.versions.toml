@@ -1,10 +1,12 @@
 [versions]
-kotlin = "1.9.24"
+kotlin = "2.2.20"
 dagger = "2.51.1"
 autoService = "1.1.1"
 junit = "5.10.2"
 truth = "1.4.2"
 kotlinCompileTesting = "0.5.1"
+kotlinxSerialization = "1.7.3"
+metro = "0.9.3"
 
 [libraries]
 # Kotlin
@@ -25,6 +27,14 @@ truth = { module = "com.google.truth:truth", version.ref = "truth" }
 kotlin-compile-testing = { module = "dev.zacsweers.kctfork:core", version.ref = "kotlinCompileTesting" }
 kotlin-compile-testing-ksp = { module = "dev.zacsweers.kctfork:ksp", version.ref = "kotlinCompileTesting" }
 
+# Kotlinx Serialization
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+
+# Metro - runtime is added automatically by the plugin
+metro-runtime = { module = "dev.zacsweers.metro:runtime", version.ref = "metro" }
+
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+metro = { id = "dev.zacsweers.metro", version.ref = "metro" }

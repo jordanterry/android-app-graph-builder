@@ -23,6 +23,15 @@ subprojects {
         useJUnitPlatform()
     }
 
+    // Add JUnit platform launcher for Gradle 9.x compatibility
+    afterEvaluate {
+        if (configurations.findByName("testRuntimeOnly") != null) {
+            dependencies {
+                "testRuntimeOnly"("org.junit.platform:junit-platform-launcher")
+            }
+        }
+    }
+
     // Configure maven-publish for publishable modules
     if (name != "integration-tests") {
         apply(plugin = "maven-publish")
